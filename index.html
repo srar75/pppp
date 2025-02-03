@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Digital - Sistema di Digitalizzazione</title>
+    <!-- Librerie necessarie -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/2.1.5/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --background-color: #f3f4f6;
+            --text-color: #1f2937;
+            --error-color: #dc2626;
+            --success-color: #059669;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background-color: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .auth-section {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .main-content {
+            background-color: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .upload-section {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            background-color: #f8fafc;
+            border-color: var(--primary-color);
+        }
+
+        .verification-section {
+            display: none;
+            margin-top: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #f8fafc;
+            transform: translateY(-1px);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            animation: slideIn 0.3s ease;
+            position: relative;
+        }
+
+        .alert-success {
+            background-color: #dcfce7;
+            color: var(--success-color);
+            border: 1px solid #86efac;
+        }
+
+        .alert-error {
+            background-color: #fee2e2;
+            color: var(--error-color);
+            border: 1px solid #fecaca;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: white;
+            width: 90%;
+            max-width: 500px;
+            margin: 2rem auto;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 1rem auto;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: var(--primary-color);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            margin: 1rem auto;
+            display: none;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">HR Digital</div>
+                <div class="auth-section">
+                    <button id="loginBtn" class="btn btn-secondary">Accedi</button>
+                    <button id="registerBtn" class="btn btn-primary">Registrati</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="main-content">
+            <div id="authSection">
+                <h2>Accedi</h2>
+                <form id="authForm">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" required 
+                               placeholder="esempio@dominio.com" 
+                               pattern="[^@\s]+@[^@\s]+\.[^@\s]+" 
+                               title="Inserisci un indirizzo email valido">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password (minimo 6 caratteri)</label>
+                        <input type="password" id="password" required 
+                               placeholder="Inserisci la password" 
+                               minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Accedi</button>
+                </form>
+            </div>
+
+            <div id="appSection" style="display: none;">
+                <div id="dropZone" class="upload-section">
+                    <h2>Carica Documento</h2>
+                    <p>Trascina e rilascia un file Word o PDF, o fai clic per selezionare</p>
+                    <input type="file" id="fileUpload" accept=".doc,.docx,.pdf" style="display: none;">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileUpload').click()">
+                        Seleziona File
+                    </button>
+                    <div id="progressBar" class="progress-bar">
+                        <div class="progress-bar-fill"></div>
+                    </div>
+                    <img id="previewImage" class="preview-image" alt="Anteprima documento">
+                </div>
+
+                <div id="verificationSection" class="verification-section">
+                    <h2>Verifica Dati Estratti</h2>
+                    <form id="verificationForm">
+                        <div class="form-group">
+                            <label for="nombre">Nome Completo</label>
+                            <input type="text" id="nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="dni">Codice Fiscale</label>
+                            <input type="text" id="dni" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="telefono">Telefono</label>
+                            <input type="tel" id="telefono" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="correo">Email</label>
+                            <input type="email" id="correo" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Conferma Dati</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="loadingModal" class="modal">
+        <div class="modal-content">
+            <div class="loading-spinner"></div>
+            <h3>Elaborazione documento...</h3>
+            <p id="progressStatus">Preparazione analisi...</p>
+        </div>
+    </div>
+    <script>
+        // Configurazione Firebase
+        const firebaseConfig = {
+          apiKey: "AIzaSyCEHzqYF6F2rTc5kyHAyBeLOijfNzX-P3s",
+          authDomain: "words-af37f.firebaseapp.com",
+          projectId: "words-af37f",
+          storageBucket: "words-af37f.firebasestorage.app",
+          messagingSenderId: "1057306735891",
+          appId: "1:1057306735891:web:3e1df60706fd17906f16e6",
+          measurementId: "G-P22BEPK48K"
+        };
+
+        // Inizializzazione Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        // Variabili globali
+        let currentUser = null;
+        let extractedData = null;
+
+        // Elementi DOM
+        const authSection = document.getElementById('authSection');
+        const appSection = document.getElementById('appSection');
+        const authForm = document.getElementById('authForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const fileUpload = document.getElementById('fileUpload');
+        const dropZone = document.getElementById('dropZone');
+        const verificationSection = document.getElementById('verificationSection');
+        const verificationForm = document.getElementById('verificationForm');
+        const loadingModal = document.getElementById('loadingModal');
+        const progressBar = document.getElementById('progressBar');
+        const progressBarFill = progressBar.querySelector('.progress-bar-fill');
+        const progressStatus = document.getElementById('progressStatus');
+        const previewImage = document.getElementById('previewImage');
+
+        // Gestione autenticazione
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            if (user) {
+                authSection.style.display = 'none';
+                appSection.style.display = 'block';
+                loginBtn.style.display = 'none';
+                registerBtn.textContent = 'Esci';
+                showAlert(`Benvenuto ${user.email}`, 'success');
+            } else {
+                authSection.style.display = 'block';
+                appSection.style.display = 'none';
+                loginBtn.style.display = 'inline-block';
+                registerBtn.textContent = 'Registrati';
+                verificationSection.style.display = 'none';
+                previewImage.style.display = 'none';
+                progressBar.style.display = 'none';
+            }
+        });
+
+        // Event Listeners per autenticazione
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                showAlert('Accesso effettuato con successo', 'success');
+            } catch (error) {
+                let errorMessage = 'Errore di accesso: ';
+                switch (error.code) {
+                    case 'auth/user-not-found':
+                        errorMessage += 'Utente non trovato';
+                        break;
+                    case 'auth/wrong-password':
+                        errorMessage += 'Password non corretta';
+                        break;
+                    default:
+                        errorMessage += error.message;
+                }
+                showAlert(errorMessage, 'error');
+            }
+        });
+
+        registerBtn.addEventListener('click', async () => {
+            if (currentUser) {
+                await auth.signOut();
+                showAlert('Disconnessione effettuata', 'success');
+            } else {
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+
+                if (!email || !password) {
+                    showAlert('Compila tutti i campi', 'error');
+                    return;
+                }
+
+                // Validazione dell'email
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    showAlert('Inserisci un indirizzo email valido', 'error');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    showAlert('La password deve contenere almeno 6 caratteri', 'error');
+                    return;
+                }
+
+                try {
+                    await auth.createUserWithEmailAndPassword(email, password);
+                    showAlert('Registrazione completata con successo', 'success');
+                } catch (error) {
+                    let errorMessage = 'Errore durante la registrazione: ';
+                    switch (error.code) {
+                        case 'auth/email-already-in-use':
+                            errorMessage += 'Email già registrata';
+                            break;
+                        case 'auth/invalid-email':
+                            errorMessage += 'Formato email non valido';
+                            break;
+                        case 'auth/operation-not-allowed':
+                            errorMessage += 'Registrazione email non abilitata';
+                            break;
+                        case 'auth/weak-password':
+                            errorMessage += 'Password troppo debole';
+                            break;
+                        default:
+                            errorMessage += error.message;
+                    }
+                    showAlert(errorMessage, 'error');
+                }
+            }
+        });
+
+        // Gestione file
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.backgroundColor = '#f0f9ff';
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.style.backgroundColor = '';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.backgroundColor = '';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        async function handleFile(file) {
+            showLoading(true);
+            progressBar.style.display = 'block';
+            updateProgress(0, 'Avvio elaborazione...');
+
+            try {
+                if (!validateFileType(file)) {
+                    throw new Error('Tipo di file non supportato. Solo PDF e Word (.doc, .docx)');
+                }
+
+                updateProgress(20, 'Lettura file...');
+
+                if (file.type.includes('pdf')) {
+                    await processPDF(file);
+                } else {
+                    await processWord(file);
+                }
+
+            } catch (error) {
+                showAlert('Errore: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function processPDF(file) {
+            updateProgress(40, 'Conversione PDF...');
+
+            const dataUrl = await readFileAsDataURL(file);
+            previewImage.src = dataUrl;
+            previewImage.style.display = 'block';
+
+            updateProgress(60, 'Esecuzione OCR...');
+
+            const worker = await Tesseract.createWorker();
+            try {
+                await worker.loadLanguage('ita');
+                await worker.initialize('ita');
+
+                updateProgress(80, 'Estrazione testo...');
+
+                const { data: { text } } = await worker.recognize(dataUrl);
+                await worker.terminate();
+
+                console.log('Testo estratto:', text); // Debug
+
+                updateProgress(90, 'Elaborazione dati estratti...');
+
+                extractedData = extractDataFromText(text);
+                populateVerificationForm(extractedData);
+
+                updateProgress(100, 'Elaborazione completata!');
+
+                verificationSection.style.display = 'block';
+                showAlert('Documento elaborato correttamente', 'success');
+            } catch (error) {
+                throw new Error('Errore nell\'elaborazione del PDF: ' + error.message);
+            }
+        }
+
+        async function processWord(file) {
+            updateProgress(40, 'Lettura documento Word...');
+
+            try {
+                const arrayBuffer = await readFileAsArrayBuffer(file);
+                const result = await mammoth.extractRawText({ arrayBuffer });
+
+                console.log('Testo estratto:', result.value); // Debug
+
+                updateProgress(80, 'Estrazione dati...');
+
+                extractedData = extractDataFromText(result.value);
+                populateVerificationForm(extractedData);
+
+                updateProgress(100, 'Elaborazione completata!');
+
+                verificationSection.style.display = 'block';
+                showAlert('Documento elaborato correttamente', 'success');
+            } catch (error) {
+                throw new Error('Errore nell\'elaborazione del documento Word: ' + error.message);
+            }
+        }
+
+        // Función mejorada de extracción de datos
+        function extractDataFromText(text) {
+            console.log('Inizio estrazione dati dal testo:', text);
+
+            const patterns = {
+                nombre: [
+                    /Nome Completo:?\s*([^\n\r]+)/i,
+                    /Nome e Cognome:?\s*([^\n\r]+)/i,
+                    /Nome:?\s*([^\n\r]+)/i,
+                    /Nominativo:?\s*([^\n\r]+)/i
+                ],
+                dni: [
+                    /Codice Fiscale:?\s*([^\n\r]+)/i,
+                    /CF:?\s*([^\n\r]+)/i,
+                    /Identificazione:?\s*([^\n\r]+)/i,
+                    /ID:?\s*([^\n\r]+)/i
+                ],
+                telefono: [
+                    /Telefono:?\s*([^\n\r]+)/i,
+                    /Tel:?\s*([^\n\r]+)/i,
+                    /Cellulare:?\s*([^\n\r]+)/i,
+                    /Cell:?\s*([^\n\r]+)/i
+                ],
+                correo: [
+                    /Email:?\s*([^\n\r]+)/i,
+                    /E-mail:?\s*([^\n\r]+)/i,
+                    /Posta elettronica:?\s*([^\n\r]+)/i,
+                    /Mail:?\s*([^\n\r]+)/i
+                ]
+            };
+
+            const extractedData = {};
+
+            // Buscar cada campo usando múltiples patrones
+            for (const [field, patternList] of Object.entries(patterns)) {
+                for (const pattern of patternList) {
+                    const match = text.match(pattern);
+                    if (match && match[1]) {
+                        extractedData[field] = match[1].trim();
+                        break;
+                    }
+                }
+                if (!extractedData[field]) {
+                    extractedData[field] = '';
+                }
+            }
+
+            console.log('Dati estratti:', extractedData);
+            return extractedData;
+        }
+
+        function extractField(text, regex) {
+            const match = text.match(regex);
+            return match ? match[1].trim() : '';
+        }
+
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function validateFileType(file) {
+            const validTypes = [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ];
+            return validTypes.includes(file.type);
+        }
+
+        verificationForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading(true);
+            updateProgress(0, 'Avvio salvataggio...');
+
+            try {
+                const verifiedData = {
+                    nombre: document.getElementById('nombre').value.trim(),
+                    dni: document.getElementById('dni').value.trim(),
+                    telefono: document.getElementById('telefono').value.trim(),
+                    correo: document.getElementById('correo').value.trim(),
+                    fechaCreacion: new Date().toISOString(),
+                    userId: currentUser.uid
+                };
+
+                validateFormData(verifiedData);
+                updateProgress(50, 'Salvataggio dati...');
+
+                await saveDocument(verifiedData);
+                updateProgress(100, 'Salvataggio completato!');
+
+                showAlert('Documento elaborato e salvato con successo', 'success');
+                verificationForm.reset();
+                verificationSection.style.display = 'none';
+                previewImage.style.display = 'none';
+                progressBar.style.display = 'none';
+
+            } catch (error) {
+                showAlert('Errore: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        function validateFormData(data) {
+            const errors = [];
+
+            if (!data.nombre.trim()) errors.push('Il nome è obbligatorio');
+            if (!data.dni.trim()) errors.push('Il codice fiscale è obbligatorio');
+
+            if (data.correo && !data.correo.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+                errors.push('Il formato dell\'indirizzo email non è valido');
+            }
+
+            if (errors.length > 0) {
+                throw new Error(errors.join('. '));
+            }
+
+            return true;
+        }
+
+        async function saveDocument(data) {
+            try {
+                console.log('Inizio salvataggio...', data);
+
+                if (!currentUser) {
+                    throw new Error('Utente non autenticato');
+                }
+
+                const userDocumentsRef = database.ref('documents').child(currentUser.uid);
+                const newDocRef = userDocumentsRef.push();
+
+                const documentData = {
+                    ...data,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP,
+                    documentId: newDocRef.key
+                };
+
+                console.log('Salvataggio documento...', documentData);
+
+                await newDocRef.set(documentData);
+
+                console.log('Documento salvato con successo');
+                return true;
+            } catch (error) {
+                console.error('Errore durante il salvataggio:', error);
+                throw new Error(`Errore durante il salvataggio: ${error.message}`);
+            }
+        }
+
+        function updateProgress(percentage, status) {
+            progressBarFill.style.width = `${percentage}%`;
+            progressStatus.textContent = status;
+        }
+
+        function showAlert(message, type) {
+                    const alert = document.createElement('div');
+                    alert.className = `alert alert-${type}`;
+                    alert.textContent = message;
+                    document.querySelector('.main-content').insertBefore(alert, document.querySelector('.main-content').firstChild);
+                    setTimeout(() => alert.remove(), 5000);
+                }
+
+                function showLoading(show) {
+                    loadingModal.style.display = show ? 'block' : 'none';
+                }
+
+                function populateVerificationForm(data) {
+                    if (data) {
+                        document.getElementById('nombre').value = data.nombre || '';
+                        document.getElementById('dni').value = data.dni || '';
+                        document.getElementById('telefono').value = data.telefono || '';
+                        document.getElementById('correo').value = data.correo || '';
+                    }
+                }
+
+            </script>
+        </body>
+        </html>
